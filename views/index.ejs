@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Image Cropper</title>
+  <style>
+    /* Paste the CSS styles here */
+    /* Add CSS styles for the Image Cropper */
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+form {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#crop-button {
+  margin-top: 10px;
+}
+
+#error-message {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+#cropped-images {
+  text-align: center;
+  margin-top: 20px;
+}
+
+#cropped-container, #new-cropped-container {
+  text-align: center;
+  margin: 20px 0;
+}
+
+#new-cropped-container {
+  display: none;
+}
+
+#new-cropped-images img {
+  max-width: 100%;
+  max-height: 400px;
+  margin: 10px;
+}
+
+  </style>
+<body>
+  <h1>Image Cropper</h1>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" id="upload" name="image" required>
+    <input type="hidden" id="x" name="x" value="">
+    <input type="hidden" id="y" name="y" value="">
+    <input type="hidden" id="width" name="width" value="">
+    <input type="hidden" id="height" name="height" value="">
+    <input type="button" id="crop-button" value="Upload and Crop">
+  </form>
+  <div id="error-message" style="color: red;"></div>
+
+  <div id="cropped-images">
+    <% if (croppedImage) { %>
+      <h2>Cropped Image:</h2>
+      <img id="croppedImage" src="/cropped/<%= croppedImage %>" alt="Cropped Image">
+    <% } %>
+  </div>
+
+  <div id="new-cropped-images"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+  <script>
+    let cropper;
+
+    document.getElementById('upload').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        $('#image').attr('src', e.target.result);
+        $('#image').on('load', function () {
+          cropper = new Cropper(this, {
+            viewMode: 1,
+            aspectRatio: NaN,
+            autoCropArea: 1,
+            crop: function (event) {
+              const data = event.detail;
+              updateCoords(data);
+            }
+          });
+        });
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    function updateCoords(c) {
+      document.getElementById('x').value = c.x;
+      document.getElementById('y').value = c.y;
+      document.getElementById('width').value = c.width;
+      document.getElementById('height').value = c.height;
+    }
+
+    document.getElementById('crop-button').addEventListener('click', () => {
+      cropper.getCroppedCanvas().toBlob((blob) => {
+        const formData = new FormData();
+        formData.append('image', blob);
+        formData.append('x', cropper.getData().x);
+        formData.append('y', cropper.getData().y);
+        formData.append('width', cropper.getData().width);
+        formData.append('height', cropper.getData().height);
+
+        fetch('/upload', {
+          method: 'POST',
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            // Hide the old cropped image
+            document.getElementById('croppedImage').style.display = 'none';
+
+            // Display the new cropped image on the page
+            const newCroppedImage = document.createElement('img');
+            newCroppedImage.src = '/cropped/' + data.croppedImage;
+            newCroppedImage.alt = 'Cropped Image';
+            document.getElementById('new-cropped-images').appendChild(newCroppedImage);
+          })
+          .catch((error) => {
+            showError('Error cropping the image. Please try again.');
+            console.error(error);
+          });
+      });
+    });
+
+    function showError(message) {
+      const errorMessageElement = document.getElementById('error-message');
+      errorMessageElement.textContent = message;
+    }
+
+    // Check if there's a cropped image in the query parameter and load it if available
+    const urlParams = new URLSearchParams(window.location.search);
+    const croppedImage = urlParams.get('croppedImage');
+    if (croppedImage) {
+      document.getElementById('croppedImage').src = '/cropped/' + croppedImage;
+      document.getElementById('croppedImage').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

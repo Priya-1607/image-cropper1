@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Image Cropper</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+</head>
+<body>
+  <h1>Image Cropper</h1>
+  <input type="file" id="upload" required>
+  <div>
+    <img id="image" src="#" alt="Select an image to crop">
+  </div>
+  <button id="crop-button">Crop</button>
+  <script>
+    let cropper;
+
+    document.getElementById('upload').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = function (e) {
+        $('#image').attr('src', e.target.result);
+        $('#image').on('load', function () {
+          cropper = new Cropper(this, {
+            viewMode: 1,
+            aspectRatio: NaN,
+            autoCropArea: 1,
+            crop: function(event) {
+              const data = event.detail;
+              updateCoords(data);
+            }
+          });
+        });
+      };
+      
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('crop-button').addEventListener('click', () => {
+      const data = cropper.getData();
+      const formData = new FormData();
+      formData.append('image', $('#upload')[0].files[0]);
+      formData.append('x', data.x);
+      formData.append('y', data.y);
+      formData.append('width', data.width);
+      formData.append('height', data.height);
+
+      $.ajax({
+        type: 'POST',
+        url: '/upload',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+          window.location.reload();
+        },
+        error: function(xhr, status, error) {
+          alert(error);
+        }
+      });
+    });
+
+    function updateCoords(c) {
+      document.getElementById('x').value = c.x;
+      document.getElementById('y').value = c.y;
+      document.getElementById('width').value = c.width;
+      document.getElementById('height').value = c.height;
+    }
+  </script>
+</body>
+</html>
